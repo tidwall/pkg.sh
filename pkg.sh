@@ -21,7 +21,9 @@ tmpdir=$(mktemp -d "${TMPDIR:-/tmp/}$(basename $0).XXXXXXXXXXXX")
 
 # mkurl generates a url from an import directive
 mkurl() {
-    if case $1 in *://*) ;; *) false;; esac; then
+    if case $1 in ../*|./*|/*) ;; *) false;; esac; then
+        echo "file://$1"
+    elif case $1 in *://*) ;; *) false;; esac; then
         echo $1
     elif case $1 in github.com/*) ;; *) false;; esac; then
         tag="${1:11}"
@@ -30,6 +32,17 @@ mkurl() {
         echo "https://raw.githubusercontent.com/$tag/$branch/$file"
     else 
         >&2 echo "line $ln: invalid location: '$1'"; exit 1
+    fi
+}
+
+curlx() {
+    # if case $1 in file:///*) ;; *) false;; esac; then
+    #     cat ${1:7}
+    #el
+    if case $1 in file://*) ;; *) false;; esac; then
+        wd1=$(pwd) && cd $wd && cat ${1:7} && cd $wd1
+    else
+        curl -m 60 -f -s -S "$1"
     fi
 }
 
@@ -42,7 +55,7 @@ fetch() {
     cd $pdir
     if [ $(basename "$2") == .package ]; then
         >&2 echo "[get] $2"
-        curl -m 60 -f -s -S $url > $(basename $url)
+        curlx "$url" > $(basename $url)
         echo "" | cat .package |  sed -e 's/^[ \t]*//' | grep '^file *' | \
         while read line ; do
             fname=$(echo $line | cut -d' ' -f2-)
@@ -54,7 +67,7 @@ fetch() {
                 touch $fname
             else      
                 >&2 echo "[get] $url"
-                curl -m 60 -f -s -S $url > $fname
+                curlx "$url" > $fname
             fi
         done
         $self $1 inner "$3"
@@ -64,7 +77,7 @@ fetch() {
         touch $(basename $2)
     else
         >&2 echo "[get] $2"
-        curl -m 60 -f -s -S $2 > $(basename $2)
+        curlx "$2" > $(basename $2)
     fi
     cd $wd
     if [ $1 != clean ]; then
