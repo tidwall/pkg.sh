@@ -36,9 +36,6 @@ mkurl() {
 }
 
 curlx() {
-    # if case $1 in file:///*) ;; *) false;; esac; then
-    #     cat ${1:7}
-    #el
     if case $1 in file://*) ;; *) false;; esac; then
         wd1=$(pwd) && cd $wd && cat ${1:7} && cd $wd1
     else
