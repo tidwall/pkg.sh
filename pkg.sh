@@ -17,7 +17,7 @@ wd=$(pwd)
 counter=0
 idir="./$3"
 self="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/$(basename "$0")"
-tmpdir=$(mktemp -d "${TMPDIR:-/tmp/}$(basename $0).XXXXXXXXXXXX")
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/$(basename $0).XXXXXXXXXXXX")
 
 # mkurl generates a url from an import directive
 mkurl() {
