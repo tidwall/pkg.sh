@@ -18,6 +18,7 @@ counter=0
 idir="./$3"
 self="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/$(basename "$0")"
 tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/$(basename $0).XXXXXXXXXXXX")
+fchecks=()
 
 # mkurl generates a url from an import directive
 mkurl() {
@@ -35,12 +36,54 @@ mkurl() {
     fi
 }
 
+
+# fcheck checks the verifies that a file is not being overwritten by multiple
+# imports.
+fcheck() {
+    sum1=$(shasum "$1" | cut -d " " -f1)
+    sum2=$(shasum "$2" | cut -d " " -f1)
+    if [[ ! "${fchecks[@]}" =~ "$2" || "$sum1" == "$sum2" ]]; then
+        fchecks+=($2)
+        return 1
+    fi
+    return 0
+}
+
+# cpc preforms a recursive copy and fails when an existing file already exists
+cpc() {
+    if [[ $(ls -l $1 | grep -v ^d | wc -l | xargs) == "0" ]]; then
+        return
+    fi
+    for f in $1/*; do
+        if [[ -d $f ]]; then
+            mkdir -p $2/$(basename $f)
+            cpc $f $2/$(basename $f)
+        else
+            fname=$2/$(basename $f)
+            if [[ -f $fname ]]; then
+                if fcheck $f $fname; then
+                    >&2 echo "line $ln: contents of file differs between" \
+                        "imports: $fname"
+                    exit 1
+                fi
+            fi
+            cp -f $f $fname
+        fi
+    done
+}
+
+# curlx is just like curl but allows for the "file://" scheme.
 curlx() {
     if case $1 in file://*) ;; *) false;; esac; then
         wd1=$(pwd) && cd $wd && cat ${1:7} && cd $wd1
     else
         curl -m 60 -f -s -S "$1"
     fi
+}
+
+# grepx is grep that always returns successfully
+grepx() {
+    grep "$1" || true
 }
 
 # fetch downloads files associated with an import directive. If the import is
@@ -53,7 +96,7 @@ fetch() {
     if [ $(basename "$2") == .package ]; then
         >&2 echo "[get] $2"
         curlx "$url" > $(basename $url)
-        echo "" | cat .package |  sed -e 's/^[ \t]*//' | grep '^file *' | \
+        cat .package | sed -e 's/^[ \t]*//' | grepx '^file *' | \
         while read line ; do
             fname=$(echo $line | cut -d' ' -f2-)
             fname=$(echo $fname | sed 's:#.*$::g; /^[[:space:]]*$/d' | xargs)
@@ -79,7 +122,7 @@ fetch() {
     cd $wd
     if [ $1 != clean ]; then
         mkdir -p $3
-        cp -rf $pdir/* $3/
+        cpc $pdir $3
     fi
 }
 
