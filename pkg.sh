@@ -149,7 +149,7 @@ import() {
                 # protect against directory traversal attacks
                 >&2 echo "line $ln: invalid output directory: $outdir"; exit 1
             fi
-            set -- "${@:0:i+1}"
+            set -- "${@:1:i}"
             break
         fi
         i=$(expr $i + 1)
